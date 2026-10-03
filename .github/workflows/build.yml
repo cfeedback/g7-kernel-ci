@@ -23,14 +23,13 @@ jobs:
             bison flex rsync zip unzip git wget openjdk-11-jdk libncurses5-dev \
             python3
 
-      - name: Download Clang Toolchain
-        run: |
-          mkdir -p $GITHUB_WORKSPACE/toolchain
-          cd $GITHUB_WORKSPACE/toolchain
-          wget https://github.com -O clang.zip
-          unzip -q clang.zip
-          mv proton-clang-master clang
-          rm clang.zip
+      - name: Fetch Proton-Clang Toolchain
+        uses: actions/checkout@v4
+        with:
+          repository: 'kdrag0n/proton-clang'
+          ref: 'master'
+          path: 'toolchain/clang'
+          fetch-depth: 1
 
       - name: Fetch mirukurusan Kernel Source
         uses: actions/checkout@v4
