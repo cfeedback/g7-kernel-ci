@@ -77,19 +77,30 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/kernel-source
           
+          # Clean output target structures
+          mkdir -p out
+          
+          # Define fundamental targets
           export ARCH=arm64
           export SUBARCH=arm64
-          export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH"
-          export CC=clang
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          
+          # Assign compiler paths directly to flags instead of polluting the global PATH variable
+          TOOLCHAIN_BIN="$GITHUB_WORKSPACE/toolchain/clang/bin"
+          
+          export CC="$TOOLCHAIN_BIN/clang"
+          export CROSS_COMPILE="$TOOLCHAIN_BIN/aarch64-linux-gnu-"
+          export CROSS_COMPILE_ARM32="$TOOLCHAIN_BIN/arm-linux-gnueabi-"
           export CLANG_TRIPLE=aarch64-linux-gnu-
+
+          # Force local tools to compile natively using the runner's host GCC
+          export HOSTCC=gcc
+          export HOSTCXX=g++
 
           # Initialize custom defconfig structure
           make O=out judyln_defconfig
 
-          # Compile the system
-          make -j$(nproc --all) O=out
+          # Compile the system using host decoupling switches
+          make -j$(nproc --all) O=out HOSTCC=gcc HOSTCXX=g++
 
       - name: Package Kernel via AnyKernel3
         run: |
