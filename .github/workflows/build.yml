@@ -98,7 +98,7 @@ jobs:
           zip -r9 $GITHUB_WORKSPACE/G7-Lineage22-NoMount.zip * -x .git README.md
 
       - name: Upload Flashable Kernel Zip
-        uses: actions/upload-artifact
+        uses: actions/upload-artifact@v4
         with:
           name: LG-G7-NoMount-Kernel
           path: ${{ github.workspace }}/G7-Lineage22-NoMount.zip
