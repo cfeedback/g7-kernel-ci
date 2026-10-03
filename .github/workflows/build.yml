@@ -60,6 +60,13 @@ jobs:
           # NoMount core hardware/VFS patches
           echo "CONFIG_NOMOUNT=y" >> $DEFCONFIG_FILE
 
+      - name: Patch BPF Redefinition Bug
+        run: |
+          BPF_HEADER="$GITHUB_WORKSPACE/kernel-source/include/linux/bpf.h"
+          # Comment out or strip the specific duplication block causing the compile loop
+          # Alternatively, force BPF syscall definition on in the target defconfig directly:
+          echo "CONFIG_BPF_SYSCALL=y" >> $GITHUB_WORKSPACE/kernel-source/arch/arm64/configs/judyln_defconfig
+
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
         with:
