@@ -60,7 +60,7 @@ jobs:
           # NoMount core hardware/VFS patches
           echo "CONFIG_NOMOUNT=y" >> $DEFCONFIG_FILE
 
-            - name: Setup AnyKernel3 Flasher
+      - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
         with:
           repository: 'osm0sis/AnyKernel3'
