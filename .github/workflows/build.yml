@@ -60,9 +60,16 @@ jobs:
           # NoMount core hardware/VFS patches
           echo "CONFIG_NOMOUNT=y" >> $DEFCONFIG_FILE
 
-      - name: Setup AnyKernel3 Flasher
+            - name: Setup AnyKernel3 Flasher
+        uses: actions/checkout@v4
+        with:
+          repository: 'osm0sis/AnyKernel3'
+          ref: 'master'
+          path: 'AnyKernel3'
+          fetch-depth: 1
+
+      - name: Configure AnyKernel3 Properties
         run: |
-          git clone https://github.com --depth=1 $GITHUB_WORKSPACE/AnyKernel3
           sed -i 's/do.devicecheck=1/do.devicecheck=0/g' $GITHUB_WORKSPACE/AnyKernel3/anykernel.sh
           sed -i 's/device.name1=/device.name1=judyln/g' $GITHUB_WORKSPACE/AnyKernel3/anykernel.sh
 
