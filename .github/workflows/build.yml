@@ -60,13 +60,14 @@ jobs:
           # NoMount core hardware/VFS patches
           echo "CONFIG_NOMOUNT=y" >> $DEFCONFIG_FILE
 
-      - name: Patch Kernel Header Redefinitions
+      - name: Patch BPF Redefinition Bug
         run: |
           BPF_HEADER="$GITHUB_WORKSPACE/kernel-source/include/linux/bpf.h"
           
-          # Use sed to comment out the duplicate block causing the "__bpf_prog_charge" redefinition bug
-          # This completely bypasses the need for turning on CONFIG_BPF_SYSCALL
-          sed -i '740,755 s/^/\/\//' "$BPF_HEADER"
+          # Fix the "__bpf_prog_charge" redefinition bug safely by targeting its static blocks cleanly
+          # This disables the problematic fallback function definitions while preserving file formatting brackets
+          sed -i '/static inline int __bpf_prog_charge/,/^}/ s/^/\/\//' "$BPF_HEADER"
+          sed -i '/static inline void __bpf_prog_uncharge/,/^}/ s/^/\/\//' "$BPF_HEADER"
 
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
