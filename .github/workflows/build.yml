@@ -82,23 +82,6 @@ jobs:
           echo "CONFIG_KEYS=y" >> $DEFCONFIG_FILE
           echo "CONFIG_ENCRYPTED_KEYS=y" >> $DEFCONFIG_FILE
 
-      - name: Inject Configuration Defconfig Flags
-        run: |
-          DEFCONFIG_FILE="$GITHUB_WORKSPACE/kernel-source/arch/arm64/configs/judyln_defconfig"
-          
-          # ReSukiSU core flags
-          echo "CONFIG_KSU=y" >> $DEFCONFIG_FILE
-          echo "CONFIG_KSU_DEBUG=n" >> $DEFCONFIG_FILE
-          
-          # Force use of non-TP hooking for legacy 4.9 Non-GKI kernel
-          echo "CONFIG_KSU_USE_SYSCALL_HOOK_COMPAT=y" >> $DEFCONFIG_FILE
-          echo "CONFIG_KSU_USE_COMPAT_SYSCALL=y" >> $DEFCONFIG_FILE
-          
-          # NoMount core hardware/VFS patches & cryptographic keys dependencies
-          echo "CONFIG_NOMOUNT=y" >> $DEFCONFIG_FILE
-          echo "CONFIG_KEYS=y" >> $DEFCONFIG_FILE
-          echo "CONFIG_ENCRYPTED_KEYS=y" >> $DEFCONFIG_FILE
-
       - name: Advanced Source Patching
         run: |
           BPF_HEADER="$GITHUB_WORKSPACE/kernel-source/include/linux/bpf.h"
