@@ -114,7 +114,7 @@ jobs:
           sed -i '1s/^/#include <linux\/compiler.h>\n#include <linux\/types.h>\n#include <linux\/kdev_t.h>\n/' "$HALL_DRIVER"
 
           # 3. Prevent the tracepoint NR_CPUS error assert from breaking fork layouts
-          sed -i 's/#error "Unsupported NR_CPUS for lb tracepoint."/\/\/ #error "Unsupported NR_CPUS for lb tracepoint."/g' "$GITHUB_WORKSPACE/include/trace/events/sched.h" || sed -i 's/#error "Unsupported NR_CPUS for lb tracepoint."/\/\/ #error "Unsupported NR_CPUS for lb tracepoint."/g' "$GITHUB_WORKSPACE/kernel-source/include/trace/events/sched.h"
+          sed -i 's/#error "Unsupported NR_CPUS for lb tracepoint."/\/\/ #error "Unsupported NR_CPUS for lb tracepoint."/g' "$GITHUB_WORKSPACE/kernel-source/include/trace/events/sched.h"
 
           # 4. Fix NOHZ_BALANCE_KICK, mark_reserved, & NOHZ_KICK_ANY globally for ALL sched components
           sed -i '1s/^/#define NOHZ_BALANCE_KICK 0\n#define NOHZ_KICK_ANY 0\nstatic inline void mark_reserved(int cpu) {}\nstatic inline long *nohz_flags(int cpu) { return 0; }\n/' "$SCHED_HEADER"
@@ -124,11 +124,14 @@ jobs:
 
           # 6. Correct path translation for the Non-GKI Kbuild hook adjustments
           if [ -f "$RESUKISU_KBUILD" ]; then
-            # Comment out the TP hooks incompatibility check assert
             sed -i 's/\$(error TP hooks are incompatible/\# \$(error TP hooks are incompatible/g' "$RESUKISU_KBUILD"
-            # Force Kbuild to swap target configuration variables to compatibility parameters
             sed -i 's/CONFIG_KSU_USE_SYSCALL_HOOK_COMPAT=n/CONFIG_KSU_USE_SYSCALL_HOOK_COMPAT=y/g' "$RESUKISU_KBUILD"
           fi
+
+          # 7. CRUCIAL FIX: Download and automatically apply the manual VFS hook patches for Linux 4.9
+          cd $GITHUB_WORKSPACE/kernel-source
+          wget https://githubusercontent.com -O resukisu-4.9.patch
+          git apply resukisu-4.9.patch
           
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
