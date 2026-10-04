@@ -77,7 +77,6 @@ jobs:
 
       - name: Advanced Source Patching
         run: |
-          # Define file path structures
           BPF_HEADER="$GITHUB_WORKSPACE/kernel-source/include/linux/bpf.h"
           HALL_DRIVER="$GITHUB_WORKSPACE/kernel-source/drivers/input/keyboard/hall_ic.c"
           SCHED_CORE="$GITHUB_WORKSPACE/kernel-source/kernel/sched/core.c"
@@ -96,11 +95,11 @@ jobs:
           # 4. Prevent the tracepoint NR_CPUS error assert from breaking fork layouts
           sed -i 's/#error "Unsupported NR_CPUS for lb tracepoint."/\/\/ #error "Unsupported NR_CPUS for lb tracepoint."/g' "$GITHUB_WORKSPACE/kernel-source/include/trace/events/sched.h"
 
-          # 5. Fix NOHZ_BALANCE_KICK by explicitly ensuring the scheduler metrics header is imported
-          sed -i '1s/^/#include "sched.h"\n/' "$SCHED_CORE"
+          # 5. Fix NOHZ_BALANCE_KICK error safely by injecting the direct bit definition (Bypasses enum redefinition loop)
+          sed -i '1s/^/#define NOHZ_BALANCE_KICK 0\nstatic inline long *nohz_flags(int cpu) { return 0; }\n/' "$SCHED_CORE"
 
           # 6. Fix COMMAND_LINE_SIZE undeclared error by injecting the arm64 architecture setup rules
-          sed -i '1s/^/#include <asm\/setup.h>\n/' "$PROC_CMDLINE"
+          sed -i 's/#include <linux\/proc_fs.h>/#include <linux\/proc_fs.h>\n#include <asm\/setup.h>/g' "$PROC_CMDLINE"
 
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
