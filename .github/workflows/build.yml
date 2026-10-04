@@ -60,6 +60,9 @@ jobs:
           # NoMount core hardware/VFS patches
           echo "CONFIG_NOMOUNT=y" >> $DEFCONFIG_FILE
 
+           # Bypasses the "Unsupported NR_CPUS for lb tracepoint" compiler assert check completely
+          echo "CONFIG_NR_CPUS=64" >> $DEFCONFIG_FILE
+
       - name: Patch BPF Redefinition Bug
         run: |
           BPF_HEADER="$GITHUB_WORKSPACE/kernel-source/include/linux/bpf.h"
