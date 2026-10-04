@@ -53,15 +53,18 @@ jobs:
         run: |
           DEFCONFIG_FILE="$GITHUB_WORKSPACE/kernel-source/arch/arm64/configs/judyln_defconfig"
           
-          # ReSukiSU flags
+          # ReSukiSU core flags
           echo "CONFIG_KSU=y" >> $DEFCONFIG_FILE
           echo "CONFIG_KSU_DEBUG=n" >> $DEFCONFIG_FILE
           
-          # NoMount core hardware/VFS patches
+          # Force export all kernel symbols for ReSukiSU/SELinux hooking
+          echo "CONFIG_KALLSYMS=y" >> $DEFCONFIG_FILE
+          echo "CONFIG_KALLSYMS_ALL=y" >> $DEFCONFIG_FILE
+          
+          # NoMount core hardware/VFS patches & cryptographic keys dependencies
           echo "CONFIG_NOMOUNT=y" >> $DEFCONFIG_FILE
-
-           # Bypasses the "Unsupported NR_CPUS for lb tracepoint" compiler assert check completely
-          echo "CONFIG_NR_CPUS=64" >> $DEFCONFIG_FILE
+          echo "CONFIG_KEYS=y" >> $DEFCONFIG_FILE
+          echo "CONFIG_ENCRYPTED_KEYS=y" >> $DEFCONFIG_FILE
 
       - name: Patch BPF Redefinition Bug
         run: |
