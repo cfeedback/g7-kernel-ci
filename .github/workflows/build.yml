@@ -67,6 +67,7 @@ jobs:
           # ReSukiSU core flags
           echo "CONFIG_KSU=y" >> $DEFCONFIG_FILE
           echo "CONFIG_KSU_DEBUG=n" >> $DEFCONFIG_FILE
+          echo "CONFIG_KSU_MANUAL_HOOK=y" >> $DEFCONFIG_FILE
           
           # Force export all kernel symbols for ReSukiSU/SELinux hooking
           echo "CONFIG_KALLSYMS=y" >> $DEFCONFIG_FILE
