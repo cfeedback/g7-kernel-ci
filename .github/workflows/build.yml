@@ -1,4 +1,4 @@
-name: Build LG G7 Kernel with ReSukiSU & NoMount (LineageOS 22)
+name: Build LG G7 Kernel with ReSukiSU & NoMount (LineageOS 23.2)
 
 on:
   workflow_dispatch: # Manual build trigger
@@ -21,8 +21,17 @@ jobs:
           sudo apt update
           sudo apt install -y bc build-essential libssl-dev libcrypto++-dev \
             bison flex rsync zip unzip git wget openjdk-11-jdk libncurses5-dev \
-            python3 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
+            python3 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi ccache
 
+      # Crucial: This stores and restores your compiled object files between runs
+      - name: Setup Kernel Compilation Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-kernel-ccache-
+            
       - name: Fetch Proton-Clang Toolchain
         uses: actions/checkout@v4
         with:
@@ -112,28 +121,33 @@ jobs:
           
           # Clean output target structures
           mkdir -p out
+
+          # Initialize ccache layout properties
+          export CCACHE_DIR=~/.cache/ccache
+          ccache -M 5G # Restrict compiler storage size ceiling to 5GB max
+          ccache -z    # Reset internal tracking hits statistics log
           
           # Define fundamental targets
           export ARCH=arm64
           export SUBARCH=arm64
           
-          # Target standard system-installed cross-GCC wrappers for structural items
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-          
-          # Target Proton-Clang for the main kernel binary blocks
-          export CC="$GITHUB_WORKSPACE/toolchain/clang/bin/clang"
+          # Pipe the execution calls directly through ccache binaries wrappers
+          export CROSS_COMPILE="ccache aarch64-linux-gnu-"
+          export CROSS_COMPILE_ARM32="ccache arm-linux-gnueabi-"
+          export CC="ccache $GITHUB_WORKSPACE/toolchain/clang/bin/clang"
           export CLANG_TRIPLE=aarch64-linux-gnu-
 
-          # Isolate host-native compiler utilities cleanly 
-          export HOSTCC=gcc
-          export HOSTCXX=g++
+          export HOSTCC="ccache gcc"
+          export HOSTCXX="ccache g++"
 
           # Initialize custom defconfig structure
           make O=out judyln_defconfig
 
-          # Compile the system using host decoupling switches
-          make -j$(nproc --all) O=out HOSTCC=gcc HOSTCXX=g++
+          # Compile using cached thread paths
+          make -j$(nproc --all) O=out HOSTCC="ccache gcc" HOSTCXX="ccache g++"
+          
+          # Output cache utilization results to tracking charts
+          ccache -s
 
       - name: Package Kernel via AnyKernel3
         run: |
@@ -151,4 +165,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: LG-G7-NoMount-Kernel
-          path: ${{ github.workspace }}/G7-Lineage22-NoMount.zip
+          path: ${{ github.workspace }}/G7-Lineage23.2-ReSukiSu-NoMount.zip
