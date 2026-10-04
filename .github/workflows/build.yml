@@ -32,7 +32,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-kernel-ccache-
           # CRUCIAL: Forces the cloud storage cache save even if a later step fails
-          save-always: true
+          save-always: 'true'
             
       - name: Fetch Proton-Clang Toolchain
         uses: actions/checkout@v4
@@ -81,7 +81,7 @@ jobs:
           echo "CONFIG_KEYS=y" >> $DEFCONFIG_FILE
           echo "CONFIG_ENCRYPTED_KEYS=y" >> $DEFCONFIG_FILE
 
-            - name: Inject Configuration Defconfig Flags
+      - name: Inject Configuration Defconfig Flags
         run: |
           DEFCONFIG_FILE="$GITHUB_WORKSPACE/kernel-source/arch/arm64/configs/judyln_defconfig"
           
