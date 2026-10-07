@@ -90,6 +90,7 @@ jobs:
           PROC_CMDLINE="$GITHUB_WORKSPACE/kernel-source/fs/proc/cmdline.c"
           BAKASU_CHECK="$GITHUB_WORKSPACE/kernel-source/KernelSU/kernel/tools/static_export_check.mk"
           RESUKISU_KBUILD="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/Kbuild"
+          KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/KernelSU/kernel/compat/kernel_compat.h"
           
           # 1. Cleanly comment out duplicate BPF fallback signatures
           sed -i '/static inline int __bpf_prog_charge/,/}/ s/^/\/\//' "$BPF_HEADER"
@@ -119,9 +120,15 @@ jobs:
             sed -i 's/CONFIG_KSU_USE_SYSCALL_HOOK_COMPAT=n/CONFIG_KSU_USE_SYSCALL_HOOK_COMPAT=y/g' "$RESUKISU_KBUILD"
           fi
 
-          # 8. Download and automatically apply the manual VFS hook patches for Linux 4.9
+          # 8. Fix GKI-backported SELinux security structure mappings for modern custom ROM code bases
+          if [ -f "$KSU_COMPAT" ]; then
+            sed -i 's/return inode->i_security;/return (void *)inode->security_ptr;/g' "$KSU_COMPAT"
+            sed -i 's/return cred->security;/return (void *)cred->security_ptr;/g' "$KSU_COMPAT"
+          fi
+
+          # 9. Download and automatically apply the manual VFS hook patches for Linux 4.9
           cd $GITHUB_WORKSPACE/kernel-source
-          wget https://raw.githubusercontent.com/ReSukiSU/ReSukiSU_Patches/refs/heads/main/scope-minimized/kernel-4.9.patch -O kernel-4.9.patch
+          wget https://githubusercontent.com -O kernel-4.9.patch
           git apply kernel-4.9.patch
           
       - name: Setup AnyKernel3 Flasher
