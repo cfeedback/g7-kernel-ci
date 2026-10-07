@@ -196,9 +196,9 @@ jobs:
           name: LG-G7-NoMount-Kernel
           path: ${{ github.workspace }}/G7-Lineage23.2-NoMount.zip
 
-      - name: Always Save Kernel Compilation Cache
-        uses: actions/cache/save@v4
-        if: always() && steps.cache-ccache-restore.outputs.cache-hit != 'true'
-        with:
-          path: ~/.cache/ccache
-          key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
+      #- name: Always Save Kernel Compilation Cache
+      #  uses: actions/cache/save@v4
+      #  if: always() && steps.cache-ccache-restore.outputs.cache-hit != 'true'
+      #  with:
+      #    path: ~/.cache/ccache
+      #    key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
