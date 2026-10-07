@@ -76,47 +76,54 @@ jobs:
 
       - name: Advanced Source Patching
         run: |
+          BPF_HEADER="$GITHUB_WORKSPACE/kernel-source/include/linux/bpf.h"
           HALL_DRIVER="$GITHUB_WORKSPACE/kernel-source/drivers/input/keyboard/hall_ic.c"
           SCHED_HEADER="$GITHUB_WORKSPACE/kernel-source/kernel/sched/sched.h"
           PROC_CMDLINE="$GITHUB_WORKSPACE/kernel-source/fs/proc/cmdline.c"
           BAKASU_CHECK="$GITHUB_WORKSPACE/kernel-source/KernelSU/kernel/tools/static_export_check.mk"
           RESUKISU_KBUILD="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/Kbuild"
           
-          # 1. Fix missing MKDEV macro types chain parameters
+          # 1. Broadly target and patch out the legacy duplicate fallback functions in bpf.h
+          # This handles spacing quirks across all branches of the tree
+          sed -i '/__bpf_prog_charge/,/}/ s/^/\/\//' "$BPF_HEADER"
+          sed -i '/__bpf_prog_uncharge/,/}/ s/^/\/\//' "$BPF_HEADER"
+
+          # 2. Fix missing MKDEV macro types chain parameters
           sed -i '1s/^/#include <linux\/compiler.h>\n#include <linux\/types.h>\n#include <linux\/kdev_t.h>\n/' "$HALL_DRIVER"
 
-          # 2. Bypass tracepoint NR_CPUS threshold block assert inside fork layouts
+          # 3. Bypass tracepoint NR_CPUS threshold block assert inside fork layouts
           sed -i 's/#error "Unsupported NR_CPUS for lb tracepoint."/\/\/ #error "Unsupported NR_CPUS for lb tracepoint."/g' "$GITHUB_WORKSPACE/kernel-source/include/trace/events/sched.h"
 
-          # 3. Handle idle load-balancing macros for scheduler subsystems
+          # 4. Handle idle load-balancing macros for scheduler subsystems
           sed -i '1s/^/#define NOHZ_BALANCE_KICK 0\n#define NOHZ_KICK_ANY 0\nstatic inline void mark_reserved(int cpu) {}\nstatic inline long *nohz_flags(int cpu) { return 0; }\n/' "$SCHED_HEADER"
 
-          # 4. Supply arm64 hardware layout constants straight to process metrics
+          # 5. Supply arm64 hardware layout constants straight to process metrics
           sed -i 's/#include <linux\/proc_fs.h>/#include <linux\/proc_fs.h>\n#include <asm\/setup.h>/g' "$PROC_CMDLINE"
 
-          # 5. Drop tracepoint verification traps out of driver trees
+          # 6. Drop tracepoint verification traps out of driver trees
           if [ -f "$RESUKISU_KBUILD" ]; then
             sed -i 's/\$(error TP hooks are incompatible/\# \$(error TP hooks are incompatible/g' "$RESUKISU_KBUILD"
             sed -i 's/CONFIG_KSU_USE_SYSCALL_HOOK_COMPAT=n/CONFIG_KSU_USE_SYSCALL_HOOK_COMPAT=y/g' "$RESUKISU_KBUILD"
           fi
 
-          # 6. Apply manual VFS hook patch utilizing explicit raw asset endpoint structure
+          # 7. Apply manual VFS hook patch utilizing exact raw asset endpoint structure
           cd $GITHUB_WORKSPACE/kernel-source
-          wget https://raw.githubusercontent.com/ReSukiSU/ReSukiSU_Patches/refs/heads/main/scope-minimized/kernel-4.9.patch -O kernel-4.9.patch
+          wget https://githubusercontent.com -O kernel-4.9.patch
           git apply kernel-4.9.patch
 
-          # 7. Map backported LineageOS LSM tracking layers cleanly (Executes after patch)
+          # 8. Map backported LineageOS LSM tracking layers cleanly (Executes after patch)
           KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/compat/kernel_compat.h"
           if [ -f "$KSU_COMPAT" ]; then
-            sed -i 's/return inode->i_security;/return selinux_inode(inode);/g' "$KSU_COMPAT"
+            sed -i 's/return inode->security;/return selinux_inode(inode);/g' "$KSU_COMPAT"
             sed -i 's/return cred->security;/return selinux_cred(cred);/g' "$KSU_COMPAT"
           fi
 
-          # 8. Clear BakaSU static verification blocks completely
+          # 9. Clear BakaSU static verification blocks completely
           if [ -f "$BAKASU_CHECK" ]; then
             echo "all:" > "$BAKASU_CHECK"
             echo "	@echo 'Bypassed BakaSU integration rule checks safely.'" >> "$BAKASU_CHECK"
           fi
+
 
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
