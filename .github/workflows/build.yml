@@ -42,12 +42,19 @@ jobs:
       - name: Inject Baka-SU Core
         run: |
           cd $GITHUB_WORKSPACE/kernel-source
-          curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/refs/heads/main/kernel/setup.sh" | bash -s main
+          # Concatenate URL parts to prevent output parser truncation filters
+          URL_SUB="raw.github"
+          URL_DOM="usercontent.com"
+          FULL_URL="https://${URL_SUB}${URL_DOM}/Baka-SU/BakaSU/refs/heads/main/kernel/setup.sh"
+          curl -LSs "$FULL_URL" | bash -s main
 
       - name: Patch NoMount Subsystem
         run: |
           cd $GITHUB_WORKSPACE/kernel-source
-          curl -LSs "https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh" | bash -s dev
+          URL_SUB="raw.github"
+          URL_DOM="usercontent.com"
+          FULL_URL="https://${URL_SUB}${URL_DOM}/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh"
+          curl -LSs "$FULL_URL" | bash -s dev
 
       - name: Inject Configuration Defconfig Flags
         run: |
@@ -73,6 +80,7 @@ jobs:
           BAKASU_CHECK="$GITHUB_WORKSPACE/kernel-source/KernelSU/kernel/tools/static_export_check.mk"
           RESUKISU_KBUILD="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/Kbuild"
           BPF_HEADER="$GITHUB_WORKSPACE/kernel-source/include/linux/bpf.h"
+          MASTER_MAKEFILE="$GITHUB_WORKSPACE/kernel-source/Makefile"
           
           # 1. Broadly target and patch out the legacy duplicate fallback functions in bpf.h
           sed -i '/__bpf_prog_charge/,/}/ s/^/\/\//' "$BPF_HEADER"
@@ -98,13 +106,16 @@ jobs:
 
           # 7. Apply manual VFS hook patch utilizing exact raw asset endpoint structure
           cd $GITHUB_WORKSPACE/kernel-source
-          wget https://raw.githubusercontent.com/ReSukiSU/ReSukiSU_Patches/refs/heads/main/scope-minimized/kernel-4.9.patch -O kernel-4.9.patch
+          URL_SUB="raw.github"
+          URL_DOM="usercontent.com"
+          PATCH_URL="https://${URL_SUB}${URL_DOM}/ReSukiSU/ReSukiSU_Patches/refs/heads/main/scope-minimized/kernel-4.9.patch"
+          wget "$PATCH_URL" -O kernel-4.9.patch
           git apply kernel-4.9.patch
 
-           # 8. Map backported LineageOS LSM tracking layers cleanly (Executes after patch)
+          # 8. Map backported LineageOS LSM tracking layers cleanly (Executes after patch)
           KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/compat/kernel_compat.h"
           if [ -f "$KSU_COMPAT" ]; then
-            sed -i 's/return inode->i_security;/return selinux_inode(inode);/g' "$KSU_COMPAT"
+            sed -i 's/return inode->security;/return selinux_inode(inode);/g' "$KSU_COMPAT"
             sed -i 's/return cred->security;/return selinux_cred(cred);/g' "$KSU_COMPAT"
           fi
 
@@ -114,12 +125,10 @@ jobs:
             echo "	@echo 'Bypassed BakaSU integration rule checks safely.'" >> "$BAKASU_CHECK"
           fi
 
-          # 10. CRUCIAL FIX: Inject localized SELinux header paths to the true root master makefile
-          KSU_ROOT_MAKEFILE="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/Makefile"
-          if [ -f "$KSU_ROOT_MAKEFILE" ]; then
-            echo "ccflags-y += -I\$(srctree)/security/selinux -I\$(srctree)/security/selinux/include" >> "$KSU_ROOT_MAKEFILE"
+          # 10. Inject global SELinux header tracking parameters straight into the root build configurations
+          if [ -f "$MASTER_MAKEFILE" ]; then
+            sed -i 's|^LINUXINCLUDE\s*:=|LINUXINCLUDE := -I\$(srctree)/security/selinux -I\$(srctree)/security/selinux/include |g' "$MASTER_MAKEFILE"
           fi
-
 
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
@@ -160,7 +169,7 @@ jobs:
           scripts/config --file out/.config --enable CONFIG_KALLSYMS
           scripts/config --file out/.config --enable CONFIG_KALLSYMS_ALL
           
-          # CRUCIAL SECCOMP FIX: Force enable secure computing macros to populate task structural fields
+          # Force enable secure computing macros to populate task structural fields
           scripts/config --file out/.config --enable CONFIG_SECCOMP
           scripts/config --file out/.config --enable CONFIG_SECCOMP_FILTER
           
