@@ -1,4 +1,4 @@
-name: Build LG G7 Kernel with ReSukiSU & NoMount (LineageOS 23.2)
+name: Build LG G7 Kernel with Baka-SU & NoMount (LineageOS 23.2)
 
 on:
   workflow_dispatch: # Manual build trigger
@@ -23,17 +23,15 @@ jobs:
             bison flex rsync zip unzip git wget openjdk-11-jdk libncurses5-dev \
             python3 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi ccache
 
-      # Crucial: This stores and restores your compiled object files between runs
-      - name: Setup Kernel Compilation Cache
-        uses: actions/cache@v4
+      - name: Restore Kernel Compilation Cache
+        id: cache-ccache-restore
+        uses: actions/cache/restore@v4
         with:
           path: ~/.cache/ccache
           key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-kernel-ccache-
-          # CRUCIAL: Forces the cloud storage cache save even if a later step fails
-          save-always: 'true'
-            
+
       - name: Fetch Proton-Clang Toolchain
         uses: actions/checkout@v4
         with:
@@ -50,10 +48,10 @@ jobs:
           path: 'kernel-source'
           fetch-depth: 1
 
-      - name: Inject ReSukiSU Core
+      - name: Inject Baka-SU Core
         run: |
           cd $GITHUB_WORKSPACE/kernel-source
-          curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s main
+          curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/refs/heads/main/kernel/setup.sh" | bash -s main
 
       - name: Patch NoMount Subsystem
         run: |
@@ -64,72 +62,62 @@ jobs:
         run: |
           DEFCONFIG_FILE="$GITHUB_WORKSPACE/kernel-source/arch/arm64/configs/judyln_defconfig"
           
-          # ReSukiSU core flags
+          # Baka-SU core configuration parameters
           echo "CONFIG_KSU=y" >> $DEFCONFIG_FILE
           echo "CONFIG_KSU_DEBUG=n" >> $DEFCONFIG_FILE
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> $DEFCONFIG_FILE
-          
-          # Force export all kernel symbols for ReSukiSU/SELinux hooking
-          echo "CONFIG_KALLSYMS=y" >> $DEFCONFIG_FILE
-          echo "CONFIG_KALLSYMS_ALL=y" >> $DEFCONFIG_FILE
-
-          # Force use of non-TP hooking for legacy 4.9 Non-GKI kernel
           echo "CONFIG_KSU_USE_SYSCALL_HOOK_COMPAT=y" >> $DEFCONFIG_FILE
           echo "CONFIG_KSU_USE_COMPAT_SYSCALL=y" >> $DEFCONFIG_FILE
+          echo "CONFIG_KSU_MANUAL_HOOK=y" >> $DEFCONFIG_FILE
           
-          # NoMount core hardware/VFS patches & cryptographic keys dependencies
+          # NoMount VFS mechanics and cryptographic key dependencies
           echo "CONFIG_NOMOUNT=y" >> $DEFCONFIG_FILE
           echo "CONFIG_KEYS=y" >> $DEFCONFIG_FILE
           echo "CONFIG_ENCRYPTED_KEYS=y" >> $DEFCONFIG_FILE
 
       - name: Advanced Source Patching
         run: |
-          BPF_HEADER="$GITHUB_WORKSPACE/kernel-source/include/linux/bpf.h"
           HALL_DRIVER="$GITHUB_WORKSPACE/kernel-source/drivers/input/keyboard/hall_ic.c"
           SCHED_HEADER="$GITHUB_WORKSPACE/kernel-source/kernel/sched/sched.h"
           PROC_CMDLINE="$GITHUB_WORKSPACE/kernel-source/fs/proc/cmdline.c"
           BAKASU_CHECK="$GITHUB_WORKSPACE/kernel-source/KernelSU/kernel/tools/static_export_check.mk"
           RESUKISU_KBUILD="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/Kbuild"
-          KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/KernelSU/kernel/compat/kernel_compat.h"
           
-          # 1. Cleanly comment out duplicate BPF fallback signatures
-          sed -i '/static inline int __bpf_prog_charge/,/}/ s/^/\/\//' "$BPF_HEADER"
-          sed -i '/static inline void __bpf_prog_uncharge/,/}/ s/^/\/\//' "$BPF_HEADER"
-
-          # 2. Fix missing MKDEV sensory wake-up macro by adding its full type dependency chains
+          # 1. Fix missing MKDEV macro types chain parameters
           sed -i '1s/^/#include <linux\/compiler.h>\n#include <linux\/types.h>\n#include <linux\/kdev_t.h>\n/' "$HALL_DRIVER"
 
-          # 3. Completely wipe out BakaSU/ReSukiSU static export validation rule checks completely
-          if [ -f "$BAKASU_CHECK" ]; then
-            echo "all:" > "$BAKASU_CHECK"
-            echo "	@echo 'Bypassed BakaSU integration rule checks safely.'" >> "$BAKASU_CHECK"
-          fi
-
-          # 4. Prevent the tracepoint NR_CPUS error assert from breaking fork layouts
+          # 2. Bypass tracepoint NR_CPUS threshold block assert inside fork layouts
           sed -i 's/#error "Unsupported NR_CPUS for lb tracepoint."/\/\/ #error "Unsupported NR_CPUS for lb tracepoint."/g' "$GITHUB_WORKSPACE/kernel-source/include/trace/events/sched.h"
 
-          # 5. Fix NOHZ_BALANCE_KICK, mark_reserved, & NOHZ_KICK_ANY globally for ALL sched components
+          # 3. Handle idle load-balancing macros for scheduler subsystems
           sed -i '1s/^/#define NOHZ_BALANCE_KICK 0\n#define NOHZ_KICK_ANY 0\nstatic inline void mark_reserved(int cpu) {}\nstatic inline long *nohz_flags(int cpu) { return 0; }\n/' "$SCHED_HEADER"
 
-          # 6. Fix COMMAND_LINE_SIZE undeclared error by injecting the arm64 architecture setup rules
+          # 4. Supply arm64 hardware layout constants straight to process metrics
           sed -i 's/#include <linux\/proc_fs.h>/#include <linux\/proc_fs.h>\n#include <asm\/setup.h>/g' "$PROC_CMDLINE"
 
-          # 7. Correct path translation for the Non-GKI Kbuild hook adjustments
+          # 5. Drop tracepoint verification traps out of driver trees
           if [ -f "$RESUKISU_KBUILD" ]; then
             sed -i 's/\$(error TP hooks are incompatible/\# \$(error TP hooks are incompatible/g' "$RESUKISU_KBUILD"
             sed -i 's/CONFIG_KSU_USE_SYSCALL_HOOK_COMPAT=n/CONFIG_KSU_USE_SYSCALL_HOOK_COMPAT=y/g' "$RESUKISU_KBUILD"
           fi
 
-          # 8. Correctly map the legacy Linux 4.9 SELinux i_security member strings inside BakaSU
-          if [ -f "$KSU_COMPAT" ]; then
-            sed -i 's/inode->security/inode->i_security/g' "$KSU_COMPAT"
-          fi
-
-          # 9. Download and automatically apply the manual VFS hook patches for Linux 4.9
+          # 6. Apply manual VFS hook patch utilizing explicit raw asset endpoint structure
           cd $GITHUB_WORKSPACE/kernel-source
           wget https://raw.githubusercontent.com/ReSukiSU/ReSukiSU_Patches/refs/heads/main/scope-minimized/kernel-4.9.patch -O kernel-4.9.patch
           git apply kernel-4.9.patch
-          
+
+          # 7. Map backported LineageOS LSM tracking layers cleanly (Executes after patch)
+          KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/compat/kernel_compat.h"
+          if [ -f "$KSU_COMPAT" ]; then
+            sed -i 's/return inode->i_security;/return selinux_inode(inode);/g' "$KSU_COMPAT"
+            sed -i 's/return cred->security;/return selinux_cred(cred);/g' "$KSU_COMPAT"
+          fi
+
+          # 8. Clear BakaSU static verification blocks completely
+          if [ -f "$BAKASU_CHECK" ]; then
+            echo "all:" > "$BAKASU_CHECK"
+            echo "	@echo 'Bypassed BakaSU integration rule checks safely.'" >> "$BAKASU_CHECK"
+          fi
+
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
         with:
@@ -163,20 +151,14 @@ jobs:
           export HOSTCC="ccache gcc"
           export HOSTCXX="ccache g++"
 
-          # Generate baseline working config structures
           make O=out judyln_defconfig
 
-          # Force enable configuration symbols using kernel's native config modifier script
-          # This safely resolves parent-child dependencies without throwing reassign warnings
+          # Force kallsyms map export variables onto active binary configuration layout
           scripts/config --file out/.config --enable CONFIG_KALLSYMS
           scripts/config --file out/.config --enable CONFIG_KALLSYMS_ALL
-          
-          # Refresh the architecture definitions cleanly
           make O=out olddefconfig
 
-          # Compile the system
           make -j$(nproc --all) O=out HOSTCC="ccache gcc" HOSTCXX="ccache g++"
-          
           ccache -s
 
       - name: Package Kernel via AnyKernel3
@@ -195,4 +177,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: LG-G7-NoMount-Kernel
-          path: ${{ github.workspace }}/G7-Lineage23.2-ReSukiSu-NoMount.zip
+          path: ${{ github.workspace }}/G7-Lineage22-NoMount.zip
+
+      - name: Always Save Kernel Compilation Cache
+        uses: actions/cache/save@v4
+        if: always() && steps.cache-ccache-restore.outputs.cache-hit != 'true'
+        with:
+          path: ~/.cache/ccache
+          key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
