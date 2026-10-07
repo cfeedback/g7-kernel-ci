@@ -79,7 +79,6 @@ jobs:
           BAKASU_CHECK="$GITHUB_WORKSPACE/kernel-source/KernelSU/kernel/tools/static_export_check.mk"
           RESUKISU_KBUILD="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/Kbuild"
           BPF_HEADER="$GITHUB_WORKSPACE/kernel-source/include/linux/bpf.h"
-          MASTER_MAKEFILE="$GITHUB_WORKSPACE/kernel-source/Makefile"
           
           # 1. Broadly target and patch out the legacy duplicate fallback functions in bpf.h
           sed -i '/__bpf_prog_charge/,/}/ s/^/\/\//' "$BPF_HEADER"
@@ -117,18 +116,17 @@ jobs:
             echo "	@echo 'Bypassed BakaSU integration rule checks safely.'" >> "$BAKASU_CHECK"
           fi
 
-          # 9. Force resolve the missing flask.h pathing parameter globally by appending absolute paths
-          # This maps the exact location inside the GitHub workspace runner, completely bypassing relative path glitches
-          if [ -f "$MASTER_MAKEFILE" ]; then
-            echo "KBUILD_CFLAGS += -I$GITHUB_WORKSPACE/kernel-source/out/security/selinux -I$GITHUB_WORKSPACE/kernel-source/out/security/selinux/include -I$GITHUB_WORKSPACE/kernel-source/security/selinux/include" >> "$MASTER_MAKEFILE"
-          fi
-
-          # 10. CRUCIAL FIX: Target the exact return lines directly to handle BakaSU's function spacing variations
+          # 9. Clear out any previous problematic macro replacements in kernel_compat.h
           KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/compat/kernel_compat.h"
           if [ -f "$KSU_COMPAT" ]; then
-            sed -i 's/return inode->i_security;/return selinux_inode(inode);/g' "$KSU_COMPAT"
-            sed -i 's/return cred->security;/return selinux_cred(cred);/g' "$KSU_COMPAT"
+            sed -i 's/inode->i_security/selinux_inode(inode)/g' "$KSU_COMPAT"
+            sed -i 's/cred->security/selinux_cred(cred)/g' "$KSU_COMPAT"
           fi
+
+          # 10. CRUCIAL BULLETPROOF FIX: Pre-generate output folder pathways and symlink them directly!
+          # This forces flask.h to reside natively within the expected source mapping fields, completely immune to out-of-tree script filtering bugs
+          mkdir -p $GITHUB_WORKSPACE/kernel-source/out/security/selinux
+          ln -sf $GITHUB_WORKSPACE/kernel-source/out/security/selinux $GITHUB_WORKSPACE/kernel-source/security/selinux/include
 
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
