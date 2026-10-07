@@ -114,7 +114,7 @@ jobs:
 
           # 7. CRUCIAL FIX: Download and automatically apply the manual VFS hook patches for Linux 4.9
           cd $GITHUB_WORKSPACE/kernel-source
-          wget https://github.com/ReSukiSU/ReSukiSU_Patches/blob/main/scope-minimized/kernel-4.9.patch
+          wget https://raw.githubusercontent.com/ReSukiSU/ReSukiSU_Patches/refs/heads/main/scope-minimized/kernel-4.9.patch
           git apply kernel-4.9.patch
           
       - name: Setup AnyKernel3 Flasher
