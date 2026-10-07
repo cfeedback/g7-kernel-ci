@@ -114,6 +114,12 @@ jobs:
             echo "	@echo 'Bypassed BakaSU integration rule checks safely.'" >> "$BAKASU_CHECK"
           fi
 
+          # 10. CRUCIAL FIX: Inject localized SELinux header paths to prevent flask.h 404 compilation drops
+          KSU_FEATURE_MAKEFILE="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/feature/Makefile"
+          if [ -f "$KSU_FEATURE_MAKEFILE" ]; then
+            echo "ccflags-y += -I\$(srctree)/security/selinux -I\$(srctree)/security/selinux/include" >> "$KSU_FEATURE_MAKEFILE"
+          fi
+
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
         with:
