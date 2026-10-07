@@ -122,8 +122,13 @@ jobs:
             sed -i 's|^LINUXINCLUDE\s*:=|LINUXINCLUDE := -I\$(srctree)/security/selinux -I\$(srctree)/security/selinux/include |g' "$MASTER_MAKEFILE"
           fi
 
-          # 10. CRUCIAL FIX: Run LSM stacking corrections on the generated files layout
-          # This replaces raw structural elements with tracking macro calls
+          # 10. Inject generated directory destination directly to BakaSU flags
+          KSU_MAKEFILE="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/Makefile"
+          if [ -f "$KSU_MAKEFILE" ]; then
+            echo "ccflags-y += -I\$(objtree)/security/selinux -I\$(objtree)/security/selinux/include -I\$(srctree)/security/selinux/include" >> "$KSU_MAKEFILE"
+          fi
+
+          # 11. Run LSM stacking corrections on the generated files layout
           KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/compat/kernel_compat.h"
           if [ -f "$KSU_COMPAT" ]; then
             sed -i 's/inode->i_security/selinux_inode(inode)/g' "$KSU_COMPAT"
