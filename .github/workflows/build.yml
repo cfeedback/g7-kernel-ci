@@ -111,22 +111,23 @@ jobs:
           wget "$PATCH_URL" -O kernel-4.9.patch
           git apply kernel-4.9.patch
 
-          # 8. Absolute LSM Fix: Explicitly override the full return signatures for stacking structures
-          KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/compat/kernel_compat.h"
-          if [ -f "$KSU_COMPAT" ]; then
-            sed -i '/static inline void \*selinux_inode/,/^}/ s/return .*/return selinux_inode(inode);/g' "$KSU_COMPAT"
-            sed -i '/static inline void \*selinux_cred/,/^}/ s/return .*/return selinux_cred(cred);/g' "$KSU_COMPAT"
-          fi
-
-          # 9. Clear BakaSU static verification blocks completely
+          # 8. Clear BakaSU static verification blocks completely
           if [ -f "$BAKASU_CHECK" ]; then
             echo "all:" > "$BAKASU_CHECK"
             echo "	@echo 'Bypassed BakaSU integration rule checks safely.'" >> "$BAKASU_CHECK"
           fi
 
-          # 10. Inject global SELinux header tracking parameters straight into the root build configurations
+          # 9. Inject global SELinux header tracking parameters straight into the root build configurations
           if [ -f "$MASTER_MAKEFILE" ]; then
             sed -i 's|^LINUXINCLUDE\s*:=|LINUXINCLUDE := -I\$(srctree)/security/selinux -I\$(srctree)/security/selinux/include |g' "$MASTER_MAKEFILE"
+          fi
+
+          # 10. CRUCIAL FIX: Run LSM stacking corrections on the generated files layout
+          # This replaces raw structural elements with tracking macro calls
+          KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/compat/kernel_compat.h"
+          if [ -f "$KSU_COMPAT" ]; then
+            sed -i 's/inode->i_security/selinux_inode(inode)/g' "$KSU_COMPAT"
+            sed -i 's/cred->security/selinux_cred(cred)/g' "$KSU_COMPAT"
           fi
 
       - name: Setup AnyKernel3 Flasher
