@@ -42,7 +42,6 @@ jobs:
       - name: Inject Baka-SU Core
         run: |
           cd $GITHUB_WORKSPACE/kernel-source
-          # Concatenate URL parts to prevent output parser truncation filters
           URL_SUB="raw.github"
           URL_DOM="usercontent.com"
           FULL_URL="https://${URL_SUB}${URL_DOM}/Baka-SU/BakaSU/refs/heads/main/kernel/setup.sh"
@@ -112,11 +111,11 @@ jobs:
           wget "$PATCH_URL" -O kernel-4.9.patch
           git apply kernel-4.9.patch
 
-          # 8. Map backported LineageOS LSM tracking layers cleanly (Executes after patch)
+          # 8. Absolute LSM Fix: Explicitly override the full return signatures for stacking structures
           KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/compat/kernel_compat.h"
           if [ -f "$KSU_COMPAT" ]; then
-            sed -i 's/return inode->security;/return selinux_inode(inode);/g' "$KSU_COMPAT"
-            sed -i 's/return cred->security;/return selinux_cred(cred);/g' "$KSU_COMPAT"
+            sed -i '/static inline void \*selinux_inode/,/^}/ s/return .*/return selinux_inode(inode);/g' "$KSU_COMPAT"
+            sed -i '/static inline void \*selinux_cred/,/^}/ s/return .*/return selinux_cred(cred);/g' "$KSU_COMPAT"
           fi
 
           # 9. Clear BakaSU static verification blocks completely
