@@ -101,10 +101,10 @@ jobs:
           wget https://raw.githubusercontent.com/ReSukiSU/ReSukiSU_Patches/refs/heads/main/scope-minimized/kernel-4.9.patch -O kernel-4.9.patch
           git apply kernel-4.9.patch
 
-          # 8. Map backported LineageOS LSM tracking layers cleanly (Executes after patch)
+           # 8. Map backported LineageOS LSM tracking layers cleanly (Executes after patch)
           KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/compat/kernel_compat.h"
           if [ -f "$KSU_COMPAT" ]; then
-            sed -i 's/return inode->security;/return selinux_inode(inode);/g' "$KSU_COMPAT"
+            sed -i 's/return inode->i_security;/return selinux_inode(inode);/g' "$KSU_COMPAT"
             sed -i 's/return cred->security;/return selinux_cred(cred);/g' "$KSU_COMPAT"
           fi
 
