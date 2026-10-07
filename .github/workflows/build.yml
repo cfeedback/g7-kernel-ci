@@ -122,13 +122,23 @@ jobs:
             sed -i 's|^LINUXINCLUDE\s*:=|LINUXINCLUDE := -I\$(srctree)/security/selinux -I\$(srctree)/security/selinux/include |g' "$MASTER_MAKEFILE"
           fi
 
-          # 10. CRUCIAL RECURSION FIX: Intercept kernel_compat.h and completely bypass the infinite loop wrappers
-          # This maps lookups safely to the primitive raw structure members directly
+          # 10. CRUCIAL LSM & FLASK FIX: Patch the freshly generated BakaSU codebase directly
           KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/compat/kernel_compat.h"
           if [ -f "$KSU_COMPAT" ]; then
-            sed -i 's/return inode->i_security;/return inode->i_security;/g' "$KSU_COMPAT"
-            sed -i 's/return selinux_inode(inode);/return inode->i_security;/g' "$KSU_COMPAT"
-            sed -i 's/return selinux_cred(cred);/return cred->security;/g' "$KSU_COMPAT"
+            # Cleanly replace the problematic struct read lines to avoid infinite recursion blocks
+            sed -i 's/return inode->i_security;/return selinux_inode(inode);/g' "$KSU_COMPAT"
+            sed -i 's/return cred->security;/return selinux_cred(cred);/g' "$KSU_COMPAT"
+          fi
+
+          # Force resolve the missing flask.h pathing parameter globally inside BakaSU's own target build sheets
+          KSU_MAKEFILE="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/Makefile"
+          if [ -f "$KSU_MAKEFILE" ]; then
+            echo "ccflags-y += -I\$(objtree)/security/selinux -I\$(objtree)/security/selinux/include -I\$(srctree)/security/selinux/include" >> "$KSU_MAKEFILE"
+          fi
+          
+          KSU_FEATURE_MAKEFILE="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/feature/Makefile"
+          if [ -f "$KSU_FEATURE_MAKEFILE" ]; then
+            echo "ccflags-y += -I\$(objtree)/security/selinux -I\$(objtree)/security/selinux/include -I\$(srctree)/security/selinux/include" >> "$KSU_FEATURE_MAKEFILE"
           fi
 
       - name: Setup AnyKernel3 Flasher
@@ -176,10 +186,7 @@ jobs:
           
           make O=out olddefconfig
 
-          # CRUCIAL FLASK_H FIX: Force include generated paths directly into the global execution compiler flag arguments
-          # This ensures that ALL features and sub-directories (like feature/selinux_hide.o) inherit the header directories
-          make -j$(nproc --all) O=out HOSTCC="ccache gcc" HOSTCXX="ccache g++" EXTRA_CFLAGS="-I\$(objtree)/security/selinux -I\$(objtree)/security/selinux/include -I\$(srctree)/security/selinux/include"
-          
+          make -j$(nproc --all) O=out HOSTCC="ccache gcc" HOSTCXX="ccache g++"
           ccache -s
 
       - name: Package Kernel via AnyKernel3
