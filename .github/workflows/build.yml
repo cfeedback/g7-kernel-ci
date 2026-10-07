@@ -14,14 +14,14 @@ jobs:
             bison flex rsync zip unzip git wget openjdk-11-jdk libncurses5-dev \
             python3 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi ccache
 
-      - name: Restore Kernel Compilation Cache
-        id: cache-ccache-restore
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.cache/ccache
-          key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-kernel-ccache-
+      #- name: Restore Kernel Compilation Cache
+      #  id: cache-ccache-restore
+      #  uses: actions/cache/restore@v4
+      #  with:
+      #   path: ~/.cache/ccache
+      #   key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
+      #   restore-keys: |
+      #     ${{ runner.os }}-kernel-ccache-
 
       - name: Fetch Proton-Clang Toolchain
         uses: actions/checkout@v4
