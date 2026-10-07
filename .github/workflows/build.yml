@@ -152,6 +152,11 @@ jobs:
           # Force kallsyms map export variables onto active binary configuration layout
           scripts/config --file out/.config --enable CONFIG_KALLSYMS
           scripts/config --file out/.config --enable CONFIG_KALLSYMS_ALL
+          
+          # CRUCIAL SECCOMP FIX: Force enable secure computing macros to populate task structural fields
+          scripts/config --file out/.config --enable CONFIG_SECCOMP
+          scripts/config --file out/.config --enable CONFIG_SECCOMP_FILTER
+          
           make O=out olddefconfig
 
           make -j$(nproc --all) O=out HOSTCC="ccache gcc" HOSTCXX="ccache g++"
