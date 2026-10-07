@@ -117,13 +117,13 @@ jobs:
             echo "	@echo 'Bypassed BakaSU integration rule checks safely.'" >> "$BAKASU_CHECK"
           fi
 
-          # 9. Force resolve the missing flask.h pathing parameter globally by appending it straight to the core KBUILD compiler flags variable
-          # This guarantees that ALL out-of-tree and nested driver objects inherit the path map instantly!
+          # 9. Force resolve the missing flask.h pathing parameter globally by appending absolute paths
+          # This maps the exact location inside the GitHub workspace runner, completely bypassing relative path glitches
           if [ -f "$MASTER_MAKEFILE" ]; then
-            echo "KBUILD_CFLAGS += -I\$(objtree)/security/selinux -I\$(objtree)/security/selinux/include -I\$(srctree)/security/selinux/include" >> "$MASTER_MAKEFILE"
+            echo "KBUILD_CFLAGS += -I$GITHUB_WORKSPACE/kernel-source/out/security/selinux -I$GITHUB_WORKSPACE/kernel-source/out/security/selinux/include -I$GITHUB_WORKSPACE/kernel-source/security/selinux/include" >> "$MASTER_MAKEFILE"
           fi
 
-          # 10. Run LSM stacking corrections on the generated files layout
+          # 10. CRUCIAL FIX: Target the exact return lines directly to handle BakaSU's function spacing variations
           KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/compat/kernel_compat.h"
           if [ -f "$KSU_COMPAT" ]; then
             sed -i 's/return inode->i_security;/return selinux_inode(inode);/g' "$KSU_COMPAT"
