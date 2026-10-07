@@ -120,10 +120,9 @@ jobs:
             sed -i 's/CONFIG_KSU_USE_SYSCALL_HOOK_COMPAT=n/CONFIG_KSU_USE_SYSCALL_HOOK_COMPAT=y/g' "$RESUKISU_KBUILD"
           fi
 
-          # 8. Fix GKI-backported SELinux security structure mappings for modern custom ROM code bases
+          # 8. Correctly map the legacy Linux 4.9 SELinux i_security member strings inside BakaSU
           if [ -f "$KSU_COMPAT" ]; then
-            sed -i 's/return inode->i_security;/return (void *)inode->security_ptr;/g' "$KSU_COMPAT"
-            sed -i 's/return cred->security;/return (void *)cred->security_ptr;/g' "$KSU_COMPAT"
+            sed -i 's/inode->security/inode->i_security/g' "$KSU_COMPAT"
           fi
 
           # 9. Download and automatically apply the manual VFS hook patches for Linux 4.9
