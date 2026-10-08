@@ -136,7 +136,7 @@ jobs:
           sed -i 's/do.devicecheck=1/do.devicecheck=0/g' $GITHUB_WORKSPACE/AnyKernel3/anykernel.sh
           sed -i 's/device.name1=/device.name1=judyln/g' $GITHUB_WORKSPACE/AnyKernel3/anykernel.sh
 
-      - name: Build Unified Kernel
+            - name: Build Unified Kernel
         run: |
           cd $GITHUB_WORKSPACE/kernel-source
           mkdir -p out
@@ -171,10 +171,11 @@ jobs:
           # STAGE 1: Explicitly build all dynamically generated header structures first
           make O=out prepare
 
-          # CRUCIAL ABSOLUTE FIX: Physically copy the freshly generated headers straight from the output tree into the source tracking folder
-          # This forces flask.h and av_permissions.h to be sitting natively right beside avc.h, completely immune to out-of-tree variable stripping!
-          if [ -d "out/security/selinux" ]; then
-            cp -r out/security/selinux/* security/selinux/
+          # CRUCIAL ABSOLUTE FIX: Copy headers from the true generated uapi tree straight into the source folders
+          # This guarantees flask.h and av_permissions.h are present precisely where avc.h looks for them natively!
+          if [ -d "out/include/generated/uapi/linux" ]; then
+            cp out/include/generated/uapi/linux/flask.h security/selinux/include/
+            cp out/include/generated/uapi/linux/av_permissions.h security/selinux/include/
           fi
 
           # STAGE 2: Execute parallel compilation safely
