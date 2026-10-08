@@ -34,11 +34,11 @@ jobs:
         run: |
           BPF_CORE="$GITHUB_WORKSPACE/kernel-source/kernel/bpf/core.c"
           
-          # 1. Cleanly inject the missing 'tmp' block buffer declaration into the socket interpreter routine
           if [ -f "$BPF_CORE" ]; then
-            sed -i '/___bpf_prog_run(const struct bpf_insn \*insn, const void \*ctx)/,/^}/ { /u64 regs\[MAX_BPF_REG\];/a \	u32 tmp; \n\	(void)tmp;' "$BPF_CORE"
+            # 1. Cleanly inject the missing tracking variable right below the main registers array
+            sed -i '/u64 regs\[MAX_BPF_REG\];/a \	u32 tmp;' "$BPF_CORE"
             
-            # 2. Add explicit functional typecasting to the structural macro arrays to clear prototype mismatch blocks
+            # 2. Add an explicit cast to macro assignments to clear structural pointer mismatch errors
             sed -i 's/#define PROG_NAME_LIST(stack_size) PROG_NAME(stack_size),/#define PROG_NAME_LIST(stack_size) (void *)PROG_NAME(stack_size),/g' "$BPF_CORE"
           fi
 
@@ -68,25 +68,25 @@ jobs:
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export CLANG_TRIPLE=aarch64-linux-gnu-
           
-          # Initialize the true layout master performance configuration profile
+          # Initialize the master configuration profile template on disk
           make O=out sdm845-perf_defconfig
           
-          # Toggle required format and diagnostic symbols safely
+          # Configure tracking symbols safely
           scripts/config --file out/.config --enable KALLSYMS
           scripts/config --file out/.config --enable KALLSYMS_ALL
           scripts/config --file out/.config --enable SECCOMP
-          scripts/config --file out/.config --enable SECCOMP_FILTER
+          scripts/config --file out/.config --enable CONFIG_SECCOMP_FILTER
           
-          # Synchronize and lock down parameters
+          # Process changes and re-balance variables
           make O=out olddefconfig
           
-          # Verify tracking variables exist inside the active .config lines
+          # Print confirmation entries in your dashboard log stream
           grep -E '^(CONFIG_KALLSYMS|CONFIG_SECCOMP)=' out/.config || true
           
           # Pre-populate automated system headers
           make O=out prepare
           
-          # Execute parallel compilation forcing the target generation name to create the required unified flash binary
+          # Execute the parallel build forcing the required image target layout
           make -j$(nproc --all) O=out HOSTCC=gcc HOSTCXX=g++ Image.gz-dtb
 
       - name: Package Kernel via AnyKernel3
