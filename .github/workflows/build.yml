@@ -136,7 +136,7 @@ jobs:
           sed -i 's/do.devicecheck=1/do.devicecheck=0/g' $GITHUB_WORKSPACE/AnyKernel3/anykernel.sh
           sed -i 's/device.name1=/device.name1=judyln/g' $GITHUB_WORKSPACE/AnyKernel3/anykernel.sh
 
-            - name: Build Unified Kernel
+      - name: Build Unified Kernel
         run: |
           cd $GITHUB_WORKSPACE/kernel-source
           mkdir -p out
