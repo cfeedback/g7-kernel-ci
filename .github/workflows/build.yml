@@ -123,11 +123,13 @@ jobs:
             sed -i 's/cred->security/selinux_cred(cred)/g' "$KSU_COMPAT"
           fi
 
-          # 10. CRUCIAL BULLETPROOF FIX: Pre-generate output folder pathways and symlink them directly!
-          # This forces flask.h to reside natively within the expected source mapping fields, completely immune to out-of-tree script filtering bugs
-          mkdir -p $GITHUB_WORKSPACE/kernel-source/out/security/selinux
-          ln -sf $GITHUB_WORKSPACE/kernel-source/out/security/selinux $GITHUB_WORKSPACE/kernel-source/security/selinux/include
-
+          # 10. DEFINITIVE FIX: Force the core avc.h file to trace the absolute destination layout directly!
+          # This maps the include path to the explicit output tree location, bypassing all Kbuild variable overrides completely
+          AVC_HEADER="$GITHUB_WORKSPACE/kernel-source/security/selinux/include/avc.h"
+          if [ -f "$AVC_HEADER" ]; then
+            sed -i 's|#include "flask.h"|#include "'$GITHUB_WORKSPACE'/kernel-source/out/security/selinux/include/flask.h"|g' "$AVC_HEADER"
+          fi
+          
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
         with:
