@@ -123,6 +123,12 @@ jobs:
             sed -i 's/cred->security/selinux_cred(cred)/g' "$KSU_COMPAT"
           fi
 
+          # 10. DEFINITIVE HEADER FIX: Pre-generate flask.h and av_permissions.h natively in the source tree folder
+          # This forces files to exist natively on disk right where avc.h checks for them, fully independent of out-of-tree folder gaps!
+          cd $GITHUB_WORKSPACE/kernel-source/security/selinux/include
+          chmod +x classmap.sh
+          ./classmap.sh flask.h av_permissions.h
+
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
         with:
@@ -168,14 +174,8 @@ jobs:
           
           make O=out olddefconfig
 
-          # STAGE 1: Explicitly generate headers and build the security tracking layout first
-          # This forces flask.h to be generated and placed right where the tree expects it
-          make O=out prepare
-          make -j$(nproc --all) O=out HOSTCC="ccache gcc" HOSTCXX="ccache g++" security/selinux/
-
-          # STAGE 2: Execute parallel compilation safely now that headers exist on disk
+          # Execute full parallel compilation
           make -j$(nproc --all) O=out HOSTCC="ccache gcc" HOSTCXX="ccache g++"
-          
           ccache -s
 
       - name: Package Kernel via AnyKernel3
