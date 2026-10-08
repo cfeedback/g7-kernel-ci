@@ -168,12 +168,12 @@ jobs:
           
           make O=out olddefconfig
 
-          # STAGE 1: Explicitly build the generated headers first to prevent out-of-tree timing races
-          make O=out prepare modules_prepare
+          # STAGE 1: Explicitly build all dynamically generated header structures first (Bypasses the parallel timing race)
+          make O=out prepare
 
-          # STAGE 2: Execute parallel compilation using standard cross-compilation include parameters
+          # STAGE 2: Execute parallel compilation safely now that flask.h is guaranteed to reside on disk
           make -j$(nproc --all) O=out HOSTCC="ccache gcc" HOSTCXX="ccache g++" EXTRA_CFLAGS="-I\$(srctree)/security/selinux -I\$(srctree)/security/selinux/include -I\$(objtree)/security/selinux/include"
-          
+
           ccache -s
 
       - name: Package Kernel via AnyKernel3
