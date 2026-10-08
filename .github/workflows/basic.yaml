@@ -48,17 +48,14 @@ jobs:
             sed -i 's/#include <linux\/proc_fs.h>/#include <linux\/proc_fs.h>\n#include <asm\/setup.h>/g' "$PROC_CMDLINE"
           fi
 
-          # 3. FIX TFA98XX INDENTATION: Wrap the misleading unbracketed 'if' condition block in explicit code braces
+          # 3. FIX TFA98XX INDENTATION: Target the exact line and rewrite it with explicit code block curly braces inline
           if [ -f "$TFA_CODEC" ]; then
-            sed -i '/if (ret)/,/tfa98xx_log_i2c_devicenum = i2c->adapter->nr;/ { s/if (ret)/if (ret) {/; s/tfa98xx_log_i2c_devicenum = i2c->adapter->nr;/tfa98xx_log_i2c_devicenum = i2c->adapter->nr;\n\t}/ }' "$TFA_CODEC"
+            sed -i 's/tfa98xx_log_i2c_devicenum = i2c->adapter->nr;/{ tfa98xx_log_i2c_devicenum = i2c->adapter->nr; }/g' "$TFA_CODEC"
           fi
 
-          # 4. FIX LGE PANEL BOOT DEPENDENCIES: Stub out non-critical diagnostic hardware check functions
-          # This cleanly clears missing header blocks while keeping production display panels working perfectly
+          # 4. FIX LGE PANEL BOOT DEPENDENCIES: Insert an immediate absolute return override string right below the function definition
           if [ -f "$LGE_PANEL" ]; then
-            # Stub out is_factory_cable to return false safely
-            sed -i '/static bool is_factory_cable(void)/,/^}/ { /{/a \	return false;' "$LGE_PANEL"
-            # Remove the unresolvable call loops inside dsi_panel_reset_off
+            sed -i 's/static bool is_factory_cable(void)/static bool is_factory_cable(void) { return false; }\nstatic bool __old_is_factory_cable(void)/g' "$LGE_PANEL"
             sed -i 's/if (lge_get_factory_boot() || lge_get_mfts_mode())/if (false)/g' "$LGE_PANEL"
           fi
 
