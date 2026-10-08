@@ -33,13 +33,19 @@ jobs:
       - name: Advanced Source Patching
         run: |
           BPF_CORE="$GITHUB_WORKSPACE/kernel-source/kernel/bpf/core.c"
+          PROC_CMDLINE="$GITHUB_WORKSPACE/kernel-source/fs/proc/cmdline.c"
           
           if [ -f "$BPF_CORE" ]; then
-            # 1. Cleanly inject the missing tracking variable right below the main registers array
-            sed -i '/u64 regs\[MAX_BPF_REG\];/a \	u32 tmp;' "$BPF_CORE"
+            # 1. Cleanly inject the missing tracking variable right at the opening definition block of the master interpreter function
+            sed -i '/static unsigned int ___bpf_prog_run(u64 \*regs, const struct bpf_insn \*insn,/,/{/ { N; s/{/{ \n\tu32 tmp;/ }' "$BPF_CORE"
             
             # 2. Add an explicit cast to macro assignments to clear structural pointer mismatch errors
             sed -i 's/#define PROG_NAME_LIST(stack_size) PROG_NAME(stack_size),/#define PROG_NAME_LIST(stack_size) (void *)PROG_NAME(stack_size),/g' "$BPF_CORE"
+          fi
+
+          if [ -f "$PROC_CMDLINE" ]; then
+            # 3. Supply arm64 setup constants to proc filesystem metrics to fix COMMAND_LINE_SIZE
+            sed -i 's/#include <linux\/proc_fs.h>/#include <linux\/proc_fs.h>\n#include <asm\/setup.h>/g' "$PROC_CMDLINE"
           fi
 
       - name: Setup AnyKernel3 Flasher
