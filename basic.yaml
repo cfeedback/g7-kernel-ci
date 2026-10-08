@@ -1,0 +1,97 @@
+name: Build LG G7 Kernel (LineageOS 23.2)
+
+on:
+  workflow_dispatch: # Manual build trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Build Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y bc build-essential libssl-dev libcrypto++-dev \
+            bison flex rsync zip unzip git wget openjdk-11-jdk libncurses5-dev \
+            python3 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi ccache
+
+
+
+      - name: Fetch Proton-Clang Toolchain
+        uses: actions/checkout@v4
+        with:
+          repository: 'ZyCromerZ/Clang'
+          ref: '16.0.6-20260807'
+          path: 'toolchain/clang'
+          fetch-depth: 1
+
+      - name: Fetch mirukurusan Kernel Source
+        uses: actions/checkout@v4
+        with:
+          repository: 'mirukurusan/android_kernel_lge_sdm845'
+          ref: 'lineage-23.2'
+          path: 'kernel-source'
+          fetch-depth: 1
+
+      - name: Setup AnyKernel3 Flasher
+        uses: actions/checkout@v4
+        with:
+          repository: 'osm0sis/AnyKernel3'
+          ref: 'master'
+          path: 'AnyKernel3'
+          fetch-depth: 1
+
+      - name: Configure AnyKernel3 Properties
+        run: |
+          sed -i 's/do.devicecheck=1/do.devicecheck=0/g' $GITHUB_WORKSPACE/AnyKernel3/anykernel.sh
+          sed -i 's/device.name1=/device.name1=judyln/g' $GITHUB_WORKSPACE/AnyKernel3/anykernel.sh
+
+      - name: Build Unified Kernel
+        run: |
+          cd $GITHUB_WORKSPACE/kernel-source
+          mkdir -p out
+          
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH"
+          export CC=clang
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          export CLANG_TRIPLE=aarch64-linux-gnu-
+
+          make O=out judyln_defconfig
+
+          # Force kallsyms map export variables onto active binary configuration layout
+          scripts/config --file out/.config --enable KALLSYMS
+          scripts/config --file out/.config --enable KALLSYMS_ALL
+          
+          # Force enable secure computing macros to populate task structural fields
+          scripts/config --file out/.config --enable SECCOMP
+          scripts/config --file out/.config --enable SECCOMP_FILTER
+          
+          make O=out olddefconfig
+
+          grep -E '^(CONFIG_KSU|CONFIG_NOMOUNT|CONFIG_KALLSYMS|CONFIG_SECCOMP)=' \
+          out/.config || true
+
+          # STAGE 1: Explicitly build all dynamically generated header structures first
+          make O=out prepare
+
+          make -j$(nproc --all) O=out HOSTCC=gcc HOSTCXX=g++
+         
+      - name: Package Kernel via AnyKernel3
+        run: |
+          IMAGE_PATH="$GITHUB_WORKSPACE/kernel-source/out/arch/arm64/boot/Image.gz-dtb"
+          if [ -f "$IMAGE_PATH" ]; then
+            cp "$IMAGE_PATH" $GITHUB_WORKSPACE/AnyKernel3/
+          else
+            cp $GITHUB_WORKSPACE/kernel-source/out/arch/arm64/boot/Image.gz $GITHUB_WORKSPACE/AnyKernel3/
+          fi
+          
+          cd $GITHUB_WORKSPACE/AnyKernel3
+          zip -r9 $GITHUB_WORKSPACE/G7-Lineage23.2.zip * -x .git README.md
+
+      - name: Upload Flashable Kernel Zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: LG-G7-NoMount-Kernel
+          path: ${{ github.workspace }}/G7-Lineage23.2.zip
