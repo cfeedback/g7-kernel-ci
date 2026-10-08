@@ -14,14 +14,14 @@ jobs:
             bison flex rsync zip unzip git wget openjdk-11-jdk libncurses5-dev \
             python3 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi ccache
 
-      #- name: Restore Kernel Compilation Cache
-      #  id: cache-ccache-restore
-      #  uses: actions/cache/restore@v4
-      #  with:
-      #   path: ~/.cache/ccache
-      #   key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
-      #   restore-keys: |
-      #     ${{ runner.os }}-kernel-ccache-
+      - name: Restore Kernel Compilation Cache
+        id: cache-ccache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/ccache
+          key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-kernel-ccache-
 
       - name: Fetch Proton-Clang Toolchain
         uses: actions/checkout@v4
@@ -116,20 +116,13 @@ jobs:
             echo "	@echo 'Bypassed BakaSU integration rule checks safely.'" >> "$BAKASU_CHECK"
           fi
 
-          # 9. Clear out any previous problematic macro replacements in kernel_compat.h
+          # 9. Cleanly run LSM stacking corrections on the generated files layout
           KSU_COMPAT="$GITHUB_WORKSPACE/kernel-source/drivers/kernelsu/compat/kernel_compat.h"
           if [ -f "$KSU_COMPAT" ]; then
             sed -i 's/inode->i_security/selinux_inode(inode)/g' "$KSU_COMPAT"
             sed -i 's/cred->security/selinux_cred(cred)/g' "$KSU_COMPAT"
           fi
 
-          # 10. DEFINITIVE FIX: Force the core avc.h file to trace the absolute destination layout directly!
-          # This maps the include path to the explicit output tree location, bypassing all Kbuild variable overrides completely
-          AVC_HEADER="$GITHUB_WORKSPACE/kernel-source/security/selinux/include/avc.h"
-          if [ -f "$AVC_HEADER" ]; then
-            sed -i 's|#include "flask.h"|#include "'$GITHUB_WORKSPACE'/kernel-source/out/security/selinux/include/flask.h"|g' "$AVC_HEADER"
-          fi
-          
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
         with:
@@ -175,7 +168,12 @@ jobs:
           
           make O=out olddefconfig
 
-          make -j$(nproc --all) O=out HOSTCC="ccache gcc" HOSTCXX="ccache g++"
+          # STAGE 1: Explicitly build the generated headers first to prevent out-of-tree timing races
+          make O=out prepare modules_prepare
+
+          # STAGE 2: Execute parallel compilation using standard cross-compilation include parameters
+          make -j$(nproc --all) O=out HOSTCC="ccache gcc" HOSTCXX="ccache g++" EXTRA_CFLAGS="-I\$(srctree)/security/selinux -I\$(srctree)/security/selinux/include -I\$(objtree)/security/selinux/include"
+          
           ccache -s
 
       - name: Package Kernel via AnyKernel3
@@ -196,9 +194,9 @@ jobs:
           name: LG-G7-NoMount-Kernel
           path: ${{ github.workspace }}/G7-Lineage23.2-NoMount.zip
 
-      #- name: Always Save Kernel Compilation Cache
-      #  uses: actions/cache/save@v4
-      #  if: always() && steps.cache-ccache-restore.outputs.cache-hit != 'true'
-      #  with:
-      #    path: ~/.cache/ccache
-      #    key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
+      - name: Always Save Kernel Compilation Cache
+        uses: actions/cache/save@v4
+        if: always() && steps.cache-ccache-restore.outputs.cache-hit != 'true'
+        with:
+          path: ~/.cache/ccache
+          key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
