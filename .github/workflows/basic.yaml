@@ -57,25 +57,26 @@ jobs:
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export CLANG_TRIPLE=aarch64-linux-gnu-
-
+          
+          # Initialize the true LG G7 hardware defconfig profile target
           make O=out judyln_defconfig
-
-          # Force kallsyms map export variables onto active binary configuration layout
-          scripts/config --file out/.config --enable KALLSYMS
-          scripts/config --file out/.config --enable KALLSYMS_ALL
           
-          # Force enable secure computing macros to populate task structural fields
-          scripts/config --file out/.config --enable SECCOMP
-          scripts/config --file out/.config --enable SECCOMP_FILTER
+          # Safely toggle your framework flags on
+          scripts/config --file out/.config --enable CONFIG_KALLSYMS
+          scripts/config --file out/.config --enable CONFIG_KALLSYMS_ALL
+          scripts/config --file out/.config --enable CONFIG_SECCOMP
+          scripts/config --file out/.config --enable CONFIG_SECCOMP_FILTER
           
+          # Regenerate and lock down the configuration parameters
           make O=out olddefconfig
-
-          grep -E '^(CONFIG_KSU|CONFIG_NOMOUNT|CONFIG_KALLSYMS|CONFIG_SECCOMP)=' \
-          out/.config || true
-
-          # STAGE 1: Explicitly build all dynamically generated header structures first
+          
+          # Verify your flags are locked in successfully
+          grep -E '^(CONFIG_KALLSYMS|CONFIG_SECCOMP)=' out/.config || true
+          
+          # STAGE 1: Pre-populate automated headers
           make O=out prepare
-
+          
+          # STAGE 2: Execute parallel compilation using standard host compiler overrides
           make -j$(nproc --all) O=out HOSTCC=gcc HOSTCXX=g++
          
       - name: Package Kernel via AnyKernel3
