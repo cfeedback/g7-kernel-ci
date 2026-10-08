@@ -34,18 +34,29 @@ jobs:
         run: |
           BPF_CORE="$GITHUB_WORKSPACE/kernel-source/kernel/bpf/core.c"
           PROC_CMDLINE="$GITHUB_WORKSPACE/kernel-source/fs/proc/cmdline.c"
+          AUDIO_MAKEFILE="$GITHUB_WORKSPACE/kernel-source/techpack/audio/config/sdm845auto.conf"
+          AUDIO_KBUILD="$GITHUB_WORKSPACE/kernel-source/techpack/audio/Makefile"
+          LGE_PANEL="$GITHUB_WORKSPACE/kernel-source/drivers/gpu/drm/msm/lge/lge_dsi_panel.c"
           
+          # 1. LASER BPF FIX: Wrap each bpf_load_pointer call in its own micro block scope block variable
           if [ -f "$BPF_CORE" ]; then
-            # 1. LASER FIX: Wrap each bpf_load_pointer call in its own micro block scope block variable
             sed -i 's|ptr = bpf_load_pointer(\(.*\), \&tmp);|{ u32 tmp; ptr = bpf_load_pointer(\1, \&tmp); }|g' "$BPF_CORE"
-            
-            # 2. Add an explicit cast to macro assignments to clear structural pointer mismatch errors
             sed -i 's/#define PROG_NAME_LIST(stack_size) PROG_NAME(stack_size),/#define PROG_NAME_LIST(stack_size) (void *)PROG_NAME(stack_size),/g' "$BPF_CORE"
           fi
 
+          # 2. Supply arm64 setup constants to proc filesystem metrics to fix COMMAND_LINE_SIZE
           if [ -f "$PROC_CMDLINE" ]; then
-            # 3. Supply arm64 setup constants to proc filesystem metrics to fix COMMAND_LINE_SIZE
             sed -i 's/#include <linux\/proc_fs.h>/#include <linux\/proc_fs.h>\n#include <asm\/setup.h>/g' "$PROC_CMDLINE"
+          fi
+
+          # 3. Silence strict misleading indentation warnings globally for the entire Qualcomm Audio Techpack
+          if [ -f "$AUDIO_KBUILD" ]; then
+            echo "ccflags-y += -Wno-misleading-indentation" >> "$AUDIO_KBUILD"
+          fi
+
+          # 4. Inject the missing LGE factory boot board tracker definitions header into the DSI panel driver
+          if [ -f "$LGE_PANEL" ]; then
+            sed -i '1s/^/#include <soc\/qcom\/lge\/lge_boot_cable.h>\n#include <soc\/qcom\/lge\/lge_boot_dependency.h>\n/' "$LGE_PANEL"
           fi
 
       - name: Setup AnyKernel3 Flasher
