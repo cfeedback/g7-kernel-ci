@@ -12,11 +12,9 @@ jobs:
           sudo apt update
           sudo apt install -y bc build-essential libssl-dev libcrypto++-dev \
             bison flex rsync zip unzip git wget openjdk-11-jdk libncurses5-dev \
-            python3 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi ccache
+            python3 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
-
-
-      - name: Fetch Proton-Clang Toolchain
+      - name: Fetch ZyCromerZ Clang Toolchain
         uses: actions/checkout@v4
         with:
           repository: 'ZyCromerZ/Clang'
@@ -31,6 +29,18 @@ jobs:
           ref: 'lineage-23.2'
           path: 'kernel-source'
           fetch-depth: 1
+
+      - name: Advanced Source Patching
+        run: |
+          BPF_CORE="$GITHUB_WORKSPACE/kernel-source/kernel/bpf/core.c"
+          
+          # 1. Cleanly inject the missing 'tmp' block buffer declaration into the socket interpreter routine
+          if [ -f "$BPF_CORE" ]; then
+            sed -i '/___bpf_prog_run(const struct bpf_insn \*insn, const void \*ctx)/,/^}/ { /u64 regs\[MAX_BPF_REG\];/a \	u32 tmp; \n\	(void)tmp;' "$BPF_CORE"
+            
+            # 2. Add explicit functional typecasting to the structural macro arrays to clear prototype mismatch blocks
+            sed -i 's/#define PROG_NAME_LIST(stack_size) PROG_NAME(stack_size),/#define PROG_NAME_LIST(stack_size) (void *)PROG_NAME(stack_size),/g' "$BPF_CORE"
+          fi
 
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
@@ -58,27 +68,27 @@ jobs:
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export CLANG_TRIPLE=aarch64-linux-gnu-
           
-          # 1. Initialize the true layout master configuration profile for the sdm845 tree
-          make O=out sdm845_defconfig
+          # Initialize the true layout master performance configuration profile
+          make O=out sdm845-perf_defconfig
           
-          # 2. Modify features using the proper text arguments (the tool automatically prepends CONFIG_)
+          # Toggle required format and diagnostic symbols safely
           scripts/config --file out/.config --enable KALLSYMS
           scripts/config --file out/.config --enable KALLSYMS_ALL
           scripts/config --file out/.config --enable SECCOMP
           scripts/config --file out/.config --enable SECCOMP_FILTER
           
-          # 3. Synchronize and lock down the newly added parameters
+          # Synchronize and lock down parameters
           make O=out olddefconfig
           
-          # 4. Verify your flags are cleanly present inside the workspace tracking lines
+          # Verify tracking variables exist inside the active .config lines
           grep -E '^(CONFIG_KALLSYMS|CONFIG_SECCOMP)=' out/.config || true
           
-          # STAGE 1: Pre-populate automated system headers
+          # Pre-populate automated system headers
           make O=out prepare
           
-          # STAGE 2: Execute parallel compilation using standard host compiler overrides
-          make -j$(nproc --all) O=out HOSTCC=gcc HOSTCXX=g++
-         
+          # Execute parallel compilation forcing the target generation name to create the required unified flash binary
+          make -j$(nproc --all) O=out HOSTCC=gcc HOSTCXX=g++ Image.gz-dtb
+
       - name: Package Kernel via AnyKernel3
         run: |
           IMAGE_PATH="$GITHUB_WORKSPACE/kernel-source/out/arch/arm64/boot/Image.gz-dtb"
@@ -94,5 +104,5 @@ jobs:
       - name: Upload Flashable Kernel Zip
         uses: actions/upload-artifact@v4
         with:
-          name: LG-G7-NoMount-Kernel
+          name: LG-G7-Stock-Kernel
           path: ${{ github.workspace }}/G7-Lineage23.2.zip
