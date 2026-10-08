@@ -168,17 +168,12 @@ jobs:
           
           make O=out olddefconfig
 
-          # STAGE 1: Explicitly build all dynamically generated header structures first
+          # STAGE 1: Explicitly generate headers and build the security tracking layout first
+          # This forces flask.h to be generated and placed right where the tree expects it
           make O=out prepare
+          make -j$(nproc --all) O=out HOSTCC="ccache gcc" HOSTCXX="ccache g++" security/selinux/
 
-          # CRUCIAL ABSOLUTE FIX: Copy headers from the true generated uapi tree straight into the source folders
-          # This guarantees flask.h and av_permissions.h are present precisely where avc.h looks for them natively!
-          if [ -d "out/include/generated/uapi/linux" ]; then
-            cp out/include/generated/uapi/linux/flask.h security/selinux/include/
-            cp out/include/generated/uapi/linux/av_permissions.h security/selinux/include/
-          fi
-
-          # STAGE 2: Execute parallel compilation safely
+          # STAGE 2: Execute parallel compilation safely now that headers exist on disk
           make -j$(nproc --all) O=out HOSTCC="ccache gcc" HOSTCXX="ccache g++"
           
           ccache -s
