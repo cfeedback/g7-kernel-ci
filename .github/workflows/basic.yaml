@@ -30,23 +30,23 @@ jobs:
           path: 'kernel-source'
           fetch-depth: 1
 
-      - name: Advanced Source Patching
-        run: |
-          BPF_CORE="$GITHUB_WORKSPACE/kernel-source/kernel/bpf/core.c"
-          PROC_CMDLINE="$GITHUB_WORKSPACE/kernel-source/fs/proc/cmdline.c"
-          
-          if [ -f "$BPF_CORE" ]; then
-            # 1. FOOLPROOF FIX: Inject an inline, localized scoped variable declaration right before the bpf_load_pointer statement evaluates
-            sed -i 's/ptr = bpf_load_pointer/u32 tmp; ptr = bpf_load_pointer/g' "$BPF_CORE"
-            
-            # 2. Add an explicit cast to macro assignments to clear structural pointer mismatch errors
-            sed -i 's/#define PROG_NAME_LIST(stack_size) PROG_NAME(stack_size),/#define PROG_NAME_LIST(stack_size) (void *)PROG_NAME(stack_size),/g' "$BPF_CORE"
-          fi
-
-          if [ -f "$PROC_CMDLINE" ]; then
-            # 3. Supply arm64 setup constants to proc filesystem metrics to fix COMMAND_LINE_SIZE
-            sed -i 's/#include <linux\/proc_fs.h>/#include <linux\/proc_fs.h>\n#include <asm\/setup.h>/g' "$PROC_CMDLINE"
-          fi
+      #- name: Advanced Source Patching
+      #  run: |
+      #    BPF_CORE="$GITHUB_WORKSPACE/kernel-source/kernel/bpf/core.c"
+      #    PROC_CMDLINE="$GITHUB_WORKSPACE/kernel-source/fs/proc/cmdline.c"
+      #   
+      #    if [ -f "$BPF_CORE" ]; then
+      #      # 1. FOOLPROOF FIX: Inject an inline, localized scoped variable declaration right before the bpf_load_pointer statement evaluates
+      #      sed -i 's/ptr = bpf_load_pointer/u32 tmp; ptr = bpf_load_pointer/g' "$BPF_CORE"
+      #      
+      #      # 2. Add an explicit cast to macro assignments to clear structural pointer mismatch errors
+      #      sed -i 's/#define PROG_NAME_LIST(stack_size) PROG_NAME(stack_size),/#define PROG_NAME_LIST(stack_size) (void *)PROG_NAME(stack_size),/g' "$BPF_CORE"
+      #    fi
+      #
+      #    if [ -f "$PROC_CMDLINE" ]; then
+      #      # 3. Supply arm64 setup constants to proc filesystem metrics to fix COMMAND_LINE_SIZE
+      #      sed -i 's/#include <linux\/proc_fs.h>/#include <linux\/proc_fs.h>\n#include <asm\/setup.h>/g' "$PROC_CMDLINE"
+      #    fi
 
       - name: Setup AnyKernel3 Flasher
         uses: actions/checkout@v4
