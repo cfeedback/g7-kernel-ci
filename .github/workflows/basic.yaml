@@ -5,14 +5,14 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Install Build Dependencies
         run: |
           sudo apt update
           sudo apt install -y bc build-essential libssl-dev libcrypto++-dev \
             bison flex rsync zip unzip git wget openjdk-11-jdk libncurses5-dev \
-            python3 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
+            python3 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi gcc-10 g++-10
 
       - name: Fetch ZyCromerZ SDClang 12 Toolchain
         uses: actions/checkout@v4
@@ -56,6 +56,10 @@ jobs:
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export CLANG_TRIPLE=aarch64-linux-gnu-
           
+          # Force the host compiler to utilize GCC 10 blocks to align with the 4.9 scripting subsystems
+          export HOSTCC=gcc-10
+          export HOSTCXX=g++-10
+          
           # Initialize the master configuration profile template on disk
           make O=out sdm845-perf_defconfig
           
@@ -74,8 +78,8 @@ jobs:
           # Pre-populate automated system headers
           make O=out prepare
           
-          # Execute the parallel build forcing the required image target layout
-          make -j$(nproc --all) O=out HOSTCC=gcc HOSTCXX=g++ Image.gz-dtb
+          # Execute parallel compilation using synchronized host and cross tools
+          make -j$(nproc --all) O=out HOSTCC=gcc-10 HOSTCXX=g++-10 Image.gz-dtb
 
       - name: Package Kernel via AnyKernel3
         run: |
