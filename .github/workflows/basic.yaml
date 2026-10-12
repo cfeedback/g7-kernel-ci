@@ -34,7 +34,6 @@ jobs:
         run: |
           BPF_CORE="$GITHUB_WORKSPACE/kernel-source/kernel/bpf/core.c"
           PROC_CMDLINE="$GITHUB_WORKSPACE/kernel-source/fs/proc/cmdline.c"
-          TFA_CODEC="$GITHUB_WORKSPACE/kernel-source/techpack/audio/asoc/codecs/tfa9872/tfa98xx.c"
           LGE_PANEL="$GITHUB_WORKSPACE/kernel-source/drivers/gpu/drm/msm/lge/lge_dsi_panel.c"
           
           # 1. LASER BPF FIX: Wrap each bpf_load_pointer call in its own micro block scope block variable
@@ -48,14 +47,10 @@ jobs:
             sed -i 's/#include <linux\/proc_fs.h>/#include <linux\/proc_fs.h>\n#include <asm\/setup.h>/g' "$PROC_CMDLINE"
           fi
 
-          # 3. FIX TFA98XX INDENTATION: Target the exact line and rewrite it with explicit code block curly braces inline
-          if [ -f "$TFA_CODEC" ]; then
-            sed -i 's/tfa98xx_log_i2c_devicenum = i2c->adapter->nr;/{ tfa98xx_log_i2c_devicenum = i2c->adapter->nr; }/g' "$TFA_CODEC"
-          fi
-
-          # 4. FIX LGE PANEL BOOT DEPENDENCIES: Insert an immediate absolute return override string right below the function definition
+          # 3. FIX LGE PANEL BOOT DEPENDENCIES: Comment out the unresolvable diagnostic block logic 
           if [ -f "$LGE_PANEL" ]; then
-            sed -i 's/static bool is_factory_cable(void)/static bool is_factory_cable(void) { return false; }\nstatic bool __old_is_factory_cable(void)/g' "$LGE_PANEL"
+            sed -i 's/cable_boot_type cable_info = lge_get_boot_cable();/#if 0\ncable_boot_type cable_info = lge_get_boot_cable();/g' "$LGE_PANEL"
+            sed -i 's/cable_info == LT_CABLE_910K)/cable_info == LT_CABLE_910K)\n#endif\n\treturn false;/g' "$LGE_PANEL"
             sed -i 's/if (lge_get_factory_boot() || lge_get_mfts_mode())/if (false)/g' "$LGE_PANEL"
           fi
 
@@ -108,7 +103,7 @@ jobs:
           make O=out prepare
           
           # Execute parallel compilation using synchronized host and cross tools
-          make -j$(nproc --all) O=out HOSTCC=gcc-10 HOSTCXX=g++-10 Image.gz-dtb
+          make -j$(nproc --all) O=out HOSTCC=gcc-10 HOSTCXX=g++-10 KCFLAGS="-Wno-error=misleading-indentation" EXTRA_CFLAGS="-Wno-error=misleading-indentation" Image.gz-dtb
 
       - name: Package Kernel via AnyKernel3
         run: |
